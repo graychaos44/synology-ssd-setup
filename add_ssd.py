@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Add unofficial NVMe SSD to Synology DS925+ compatibility database."""
+"""Add unofficial NVMe SSD to Synology DS925+ compatibility database.
+
+Tested on DSM 7.3.2-86009-3 with Samsung PM9A1 MZVLQ128HBHQ-000 x2.
+
+Note: 007revad/Synology_HDD_db script fails on DS925+ v7 DB (parse error).
+      This script directly edits the JSON DB files as a workaround.
+"""
 
 import json
 import shutil
@@ -15,6 +21,7 @@ DB_PATHS = [
     f"/var/lib/disk-compatibility/{NAS_MODEL}_host_v7.db",
 ]
 
+# Exact entry that worked on DSM 7.3.2
 SSD_ENTRY = {
     SSD_MODEL: {
         SSD_FW: {
@@ -24,12 +31,12 @@ SSD_ENTRY = {
                     "compatibility": "compatible",
                     "not_after": "",
                     "fw_dsm_update_status": "not_required",
-                    "not_before": "",
+                    "not_before": ""
                 }
             ],
             "support_m2_volume": True,
             "support_ssd_cache": True,
-            "support_trim": True,
+            "support_trim": True
         }
     }
 }
@@ -48,8 +55,19 @@ def add_ssd(path):
             db = json.load(f)
     except json.JSONDecodeError as e:
         print(f"ERROR: {path} is corrupt: {e}")
-        print("Try restoring from .bak file first.")
-        return False
+        # Try restoring from backup
+        bak = path + ".bak"
+        if shutil.exists(bak):
+            print(f"Restoring from {bak}...")
+            shutil.copy2(bak, path)
+            with open(path, "r") as f:
+                db = json.load(f)
+        else:
+            return False
+
+    if SSD_MODEL in db.get("disk_compatbility_info", {}):
+        print(f"Already exists: {SSD_MODEL} in {path}")
+        return True
 
     db.setdefault("disk_compatbility_info", {}).update(SSD_ENTRY)
 
